@@ -25,6 +25,8 @@ No Cursor, edite `~/.cursor/mcp.json` (ou o equivalente no seu sistema) e adicio
 
 Reinicie o Cursor para carregar o servidor.
 
+**Direto do GitHub** (versão mais recente do `main`, sem depender da publicação no npm): use `"args": ["-y", "github:ddgroup-org/tarefy-mcp"]`, ou no Claude Code `claude mcp add -s user tarefy -- npx -y github:ddgroup-org/tarefy-mcp`. Requer só Node e git. A primeira inicialização (e a primeira após cada push) leva cerca de 40 s, pois baixa as dependências e compila o TypeScript; se o cliente desistir por tempo, basta reconectar.
+
 ---
 
 ## Ferramentas

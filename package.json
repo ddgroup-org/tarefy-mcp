@@ -18,7 +18,7 @@
     "fmt": "prettier --write \"src/**/*.ts\" \"project/**/*.md\"",
     "fmt:check": "prettier --check \"src/**/*.ts\" \"project/**/*.md\"",
     "test": "bun test",
-    "prepare": "bun run build"
+    "prepare": "npm run build"
   },
   "files": [
     "build"

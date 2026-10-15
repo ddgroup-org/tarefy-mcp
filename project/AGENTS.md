@@ -34,6 +34,7 @@ O agente é responsável por atender as solicitações de desenvolvimento, segui
 - Prettier + ESLint (config Prettier); TypeScript com `tsconfig.json`.
 - **README.md** na raiz **autossuficiente**: contém instalação do MCP, descrição das ferramentas, API do Tarefy (headers e endpoints) e comandos de desenvolvimento, sem exigir leitura de outros arquivos.
 - Script **`inspector`**: testar o servidor com MCP Inspector (`bun run inspector` → build + `npx @modelcontextprotocol/inspector node build/index.js`).
+- Script **`prepare`** usa `npm run build` (não Bun), para que a instalação direto do GitHub (`npx -y github:ddgroup-org/tarefy-mcp`) funcione apenas com Node.
 - Script **`release`**: script TypeScript em `scripts/release.ts`, executado com Bun; faz bump da versão no `package.json` (patch/minor/major), commit com mensagem `vX.Y.Z`, cria tag `vX.Y.Z` e dá push (branch + tag). O push da tag dispara o workflow de publicação. Uso: `bun run release` ou `bun run release -- minor|major`. Não depende do GitHub CLI.
 
 ---
