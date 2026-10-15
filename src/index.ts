@@ -4,6 +4,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { runLogin } from "./tools/login.js";
 import { runGetTask } from "./tools/get-task.js";
+import { runListTasks } from "./tools/list-tasks.js";
+import { runAddComment } from "./tools/add-comment.js";
 
 const server = new McpServer({
   name: "tarefy",
@@ -75,6 +77,86 @@ server.registerTool(
       const message = err instanceof Error ? err.message : String(err);
       return {
         content: [{ type: "text", text: `Erro ao obter task: ${message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "list-tasks",
+  {
+    description:
+      "Lista as tasks do usuário logado no Tarefy por categoria (as abas de 'Minhas tasks'). Requer que o usuário já tenha feito login (ferramenta 'login').",
+    inputSchema: {
+      category: z
+        .enum(["todo", "validation", "done", "created", "followed"])
+        .optional()
+        .describe(
+          "Categoria: 'todo' (a fazer, padrão), 'validation' (em validação), 'done' (finalizadas), 'created' (criadas pelo usuário) ou 'followed' (seguidas)."
+        ),
+      prompt: z
+        .string()
+        .optional()
+        .describe(
+          "Instruções sobre o formato/conteúdo da resposta (quais dados incluir, formato etc.). Se omitido, retorna todos os dados em JSON."
+        ),
+    },
+  },
+  async ({ category, prompt }) => {
+    try {
+      const text = await runListTasks({ category, prompt });
+      return {
+        content: [{ type: "text", text }],
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: "text", text: `Erro ao listar tasks: ${message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "add-comment",
+  {
+    description:
+      "Adiciona uma conversa (comentário) a uma task do Tarefy. Por padrão a conversa é interna (só a equipe vê); com client=true ela é pública e fica visível para o cliente. Requer que o usuário já tenha feito login (ferramenta 'login').",
+    inputSchema: {
+      taskId: z
+        .string()
+        .min(1)
+        .describe(
+          "ID da task (o mesmo da URL: https://app.tarefy.com/task/{{taskId}})."
+        ),
+      content: z
+        .string()
+        .min(1)
+        .describe(
+          "Texto do comentário. Quebras de linha viram parágrafos; HTML é escapado."
+        ),
+      client: z
+        .boolean()
+        .optional()
+        .describe(
+          "true = conversa pública, visível para o cliente. Padrão: false (conversa interna). Só use true quando o usuário pedir explicitamente."
+        ),
+    },
+  },
+  async ({ taskId, content, client }) => {
+    try {
+      const text = await runAddComment({ taskId, content, client });
+      return {
+        content: [{ type: "text", text }],
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          { type: "text", text: `Erro ao adicionar comentário: ${message}` },
+        ],
         isError: true,
       };
     }

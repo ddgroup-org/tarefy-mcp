@@ -11,8 +11,18 @@ const taskPayload = {
   title: "Task teste",
   status: "open",
 };
-const commentsPayload = [{ id: 1, body: "Comentário interno" }];
-const publicCommentsPayload = [{ id: 2, body: "Comentário público" }];
+const commentsPayload = [{ id: 1, content: "Comentário interno" }];
+const publicCommentsPayload = [{ id: 2, content: "Comentário público" }];
+
+function commentsResponse(comments: unknown[]): Response {
+  return new Response(
+    JSON.stringify({
+      status: true,
+      data: { comments, total: comments.length },
+    }),
+    { status: 200 }
+  );
+}
 
 describe("runGetTask", () => {
   it("retorna JSON com task, comments e publicComments quando sem prompt", async () => {
@@ -24,18 +34,11 @@ describe("runGetTask", () => {
           new Response(JSON.stringify(taskPayload), { status: 200 })
         );
       }
-      if (
-        url.includes("/nodeapi/task/comments?id=") &&
-        !url.includes("/client")
-      ) {
-        return Promise.resolve(
-          new Response(JSON.stringify(commentsPayload), { status: 200 })
-        );
+      if (url.endsWith("/nodeapi/v2/comments/100?type=internal")) {
+        return Promise.resolve(commentsResponse(commentsPayload));
       }
-      if (url.includes("/nodeapi/task/comments/client?")) {
-        return Promise.resolve(
-          new Response(JSON.stringify(publicCommentsPayload), { status: 200 })
-        );
+      if (url.endsWith("/nodeapi/v2/comments/100?type=client")) {
+        return Promise.resolve(commentsResponse(publicCommentsPayload));
       }
       return Promise.resolve(new Response("{}", { status: 404 }));
     };
@@ -60,8 +63,8 @@ describe("runGetTask", () => {
           new Response(JSON.stringify({ id: 100, title: "T" }), { status: 200 })
         );
       }
-      if (url.includes("/nodeapi/task/comments")) {
-        return Promise.resolve(new Response("[]", { status: 200 }));
+      if (url.includes("/nodeapi/v2/comments/")) {
+        return Promise.resolve(commentsResponse([]));
       }
       return Promise.resolve(new Response("{}", { status: 404 }));
     };

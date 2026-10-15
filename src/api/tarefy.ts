@@ -34,14 +34,16 @@ export async function fetchTask(
 }
 
 /**
- * Conversas internas (ocultas para o cliente).
- * GET .../nodeapi/task/comments?id={{ticketId}}
+ * Conversas de uma task, por tipo.
+ * GET .../nodeapi/v2/comments/{{ticketId}}?type={{internal|client}}
+ * Resposta: { status, data: { comments: [...], total } } (sem paginação).
  */
-export async function fetchInternalComments(
+async function fetchComments(
   ticketId: number,
+  type: "internal" | "client",
   token: string
 ): Promise<TarefyComment[]> {
-  const url = `${BASE}/nodeapi/task/comments?id=${ticketId}`;
+  const url = `${BASE}/nodeapi/v2/comments/${ticketId}?type=${type}`;
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -51,54 +53,119 @@ export async function fetchInternalComments(
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
-      `Tarefy API comments: ${res.status} ${res.statusText} - ${text}`
+      `Tarefy API comments (${type}): ${res.status} ${res.statusText} - ${text}`
     );
   }
-  const data = (await res.json()) as
-    | TarefyComment[]
-    | { comments?: TarefyComment[] };
-  if (Array.isArray(data)) return data;
-  if (
-    data &&
-    typeof data === "object" &&
-    "comments" in data &&
-    Array.isArray(data.comments)
-  )
-    return data.comments;
-  return [];
+  const data = (await res.json()) as {
+    data?: { comments?: TarefyComment[] };
+  } | null;
+  const comments = data?.data?.comments;
+  return Array.isArray(comments) ? comments : [];
+}
+
+/** Conversas internas (ocultas para o cliente). */
+export function fetchInternalComments(
+  ticketId: number,
+  token: string
+): Promise<TarefyComment[]> {
+  return fetchComments(ticketId, "internal", token);
+}
+
+/** Conversas públicas (visíveis para o cliente). */
+export function fetchPublicComments(
+  ticketId: number,
+  token: string
+): Promise<TarefyComment[]> {
+  return fetchComments(ticketId, "client", token);
+}
+
+export type TaskListCategory =
+  | "todo"
+  | "validation"
+  | "done"
+  | "created"
+  | "followed";
+
+/** Endpoint e campo da resposta que contém a lista, por categoria (abas de "Minhas tasks"). */
+const TASK_LIST_ENDPOINTS: Record<
+  TaskListCategory,
+  { path: string; key: "task" | "tasks" }
+> = {
+  todo: { path: "/nodeapi/task/open/user", key: "task" },
+  validation: { path: "/nodeapi/task/validation/user", key: "task" },
+  done: { path: "/nodeapi/task/finish/user", key: "task" },
+  created: { path: "/nodeapi/task/created/user", key: "task" },
+  followed: { path: "/nodeapi/user/followedTasks", key: "tasks" },
+};
+
+/**
+ * Lista de tasks do usuário por categoria.
+ * GET .../nodeapi/task/{open|validation|finish|created}/user?userId={{userId}}
+ * GET .../nodeapi/user/followedTasks?userId={{userId}}
+ */
+export async function fetchTaskList(
+  category: TaskListCategory,
+  userId: string,
+  token: string
+): Promise<TarefyTask[]> {
+  const { path, key } = TASK_LIST_ENDPOINTS[category];
+  const url = `${BASE}${path}?userId=${encodeURIComponent(userId)}`;
+  const res = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Tarefy API task list: ${res.status} ${res.statusText} - ${text}`
+    );
+  }
+  const data = (await res.json()) as Record<string, unknown> | null;
+  const list = data && typeof data === "object" ? data[key] : undefined;
+  return Array.isArray(list) ? (list as TarefyTask[]) : [];
+}
+
+export interface TarefyCreatedComment {
+  id?: number;
+  [key: string]: unknown;
 }
 
 /**
- * Conversas públicas (visíveis para o cliente).
- * GET .../nodeapi/task/comments/client?id={{ticketId}}
+ * Cria uma conversa na task.
+ * POST .../nodeapi/v2/comments  body: { taskId: {{ticketId}}, content: "<p>...</p>", client }
+ * `client: true` torna a conversa pública (visível para o cliente).
  */
-export async function fetchPublicComments(
+export async function postComment(
   ticketId: number,
+  contentHtml: string,
+  client: boolean,
   token: string
-): Promise<TarefyComment[]> {
-  const url = `${BASE}/nodeapi/task/comments/client?id=${ticketId}`;
-  const res = await fetch(url, {
+): Promise<TarefyCreatedComment> {
+  const res = await fetch(`${BASE}/nodeapi/v2/comments`, {
+    method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
+    body: JSON.stringify({ taskId: ticketId, content: contentHtml, client }),
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
-      `Tarefy API client comments: ${res.status} ${res.statusText} - ${text}`
+      `Tarefy API create comment: ${res.status} ${res.statusText} - ${text}`
     );
   }
-  const data = (await res.json()) as
-    | TarefyComment[]
-    | { comments?: TarefyComment[] };
-  if (Array.isArray(data)) return data;
-  if (
-    data &&
-    typeof data === "object" &&
-    "comments" in data &&
-    Array.isArray(data.comments)
-  )
-    return data.comments;
-  return [];
+  const data = (await res.json()) as {
+    status?: boolean;
+    message?: string;
+    comment?: TarefyCreatedComment;
+  } | null;
+  if (data?.status !== true) {
+    throw new Error(
+      `Tarefy API create comment: ${data?.message ?? "a API não confirmou a criação do comentário"}`
+    );
+  }
+  return data.comment ?? {};
 }

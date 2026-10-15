@@ -64,6 +64,43 @@ Obtém os dados completos de uma task: dados gerais, conversas internas (equipe)
 
 ---
 
+### `list-tasks`
+
+Lista as tasks do usuário logado por categoria (as abas de "Minhas tasks" do Tarefy).
+
+| Parâmetro  | Tipo     | Descrição                                                                                                                       |
+|------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
+| `category` | opcional | `todo` (a fazer, padrão), `validation` (em validação), `done` (finalizadas), `created` (criadas pelo usuário) ou `followed` (seguidas). |
+| `prompt`   | opcional | Instruções sobre formato/conteúdo da resposta. Se omitido, retorna todos os dados em JSON.                                     |
+
+**Comportamento:**
+
+1. Lê o token salvo por `login` e extrai o ID do usuário (campo `id` do payload do token JWT).
+2. Chama o endpoint de lista da categoria escolhida.
+3. Sem `prompt`: devolve um JSON no formato `{ category, tasks }`. Com `prompt`: devolve o mesmo JSON precedido das instruções informadas.
+
+Cada task da lista traz `id_tarefa` (o ID da URL, que deve ser passado ao `get-task`), `titulo`, `status`, `cliente`, datas, urgência e responsáveis.
+
+---
+
+### `add-comment`
+
+Adiciona uma conversa a uma task: **interna** por padrão (só a equipe vê) ou **pública** (visível para o cliente).
+
+| Parâmetro | Tipo        | Descrição                                                                                   |
+|-----------|-------------|---------------------------------------------------------------------------------------------|
+| `taskId`  | obrigatório | ID da task, o mesmo da URL: `https://app.tarefy.com/task/{{taskId}}`.                       |
+| `content` | obrigatório | Texto do comentário. Quebras de linha viram parágrafos; HTML é escapado.                    |
+| `client`  | opcional    | `true` = conversa pública, visível para o cliente. Padrão: `false` (conversa interna).      |
+
+**Comportamento:**
+
+1. Lê o token salvo por `login` e obtém os dados gerais da task para descobrir o `ticketId` (campo `id`).
+2. Converte o texto para o HTML do editor do Tarefy e cria a conversa.
+3. Devolve uma confirmação com o ID do comentário criado.
+
+---
+
 ## API do Tarefy (usada pelo servidor)
 
 O servidor chama a API HTTP do Tarefy com os seguintes detalhes.
@@ -82,8 +119,14 @@ O `<token>` é o valor do cookie `tarefy` obtido após o login (salvo em `~/.tar
 | Recurso              | Método | URL                                                                 | Observação                                                                 |
 |----------------------|--------|---------------------------------------------------------------------|----------------------------------------------------------------------------|
 | Dados da task        | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/{{taskId}}`                | `taskId` = ID da URL da task (ex.: `/task/12345` → `12345`).               |
-| Conversas internas   | GET    | `https://app.tarefy.com/nodeapi/task/comments?id={{ticketId}}`     | `ticketId` = campo `id` retornado nos dados gerais da task.                 |
-| Conversas públicas   | GET    | `https://app.tarefy.com/nodeapi/task/comments/client?id={{ticketId}}` | Idem: `ticketId` = `id` dos dados gerais.                                  |
+| Conversas internas   | GET    | `https://app.tarefy.com/nodeapi/v2/comments/{{ticketId}}?type=internal` | `ticketId` = campo `id` retornado nos dados gerais da task. Lista em `data.comments`. |
+| Conversas públicas   | GET    | `https://app.tarefy.com/nodeapi/v2/comments/{{ticketId}}?type=client` | Idem.                                                                   |
+| Criar conversa       | POST   | `https://app.tarefy.com/nodeapi/v2/comments`                        | Corpo `{ "taskId": ticketId, "content": "<p>…</p>", "client": false }`; `client: true` = pública. |
+| Tasks a fazer        | GET    | `https://app.tarefy.com/nodeapi/task/open/user?userId={{userId}}`   | `userId` = campo `id` do payload do token JWT. Lista em `task`.            |
+| Tasks em validação   | GET    | `https://app.tarefy.com/nodeapi/task/validation/user?userId={{userId}}` | Idem. Lista em `task`.                                                 |
+| Tasks finalizadas    | GET    | `https://app.tarefy.com/nodeapi/task/finish/user?userId={{userId}}` | Idem. Lista em `task`.                                                     |
+| Tasks criadas        | GET    | `https://app.tarefy.com/nodeapi/task/created/user?userId={{userId}}` | Idem. Lista em `task`.                                                    |
+| Tasks seguidas       | GET    | `https://app.tarefy.com/nodeapi/user/followedTasks?userId={{userId}}` | Idem. Lista em `tasks`.                                                 |
 
 - **Conversas internas:** alinhamentos da equipe, eventos sistêmicos (ex.: mudança de área); não visíveis para o cliente.
 - **Conversas públicas:** aprovações, prazos, pedidos de dados, dúvidas; visíveis para o cliente.
