@@ -1,10 +1,10 @@
 # @alanvncs/tarefy-mcp
 
-Servidor [MCP](https://modelcontextprotocol.io) para o [Tarefy](https://tarefy.com). Expõe tarefas, conversas internas e conversas públicas para uso por agentes de IA (por exemplo no Cursor).
+Servidor [MCP](https://modelcontextprotocol.io) para o [Tarefy](https://tarefy.com). Permite que agentes de IA (por exemplo no Cursor ou no Claude Code) consultem e gerenciem tasks: dados, conversas, criação, edição, status, colunas, responsáveis, seguidores, tags, subtasks, relacionamentos, anexos e lançamento de horas.
 
 ## O que é o Tarefy
 
-[Tarefy](https://tarefy.com) é uma plataforma de gestão de tarefas e produtividade para equipes, empresas e freelancers: criar tarefas, atribuir responsáveis, definir prazos, acompanhar progresso e centralizar a comunicação. Este servidor MCP expõe as informações completas das tasks (dados gerais + conversas) para agentes de IA.
+[Tarefy](https://tarefy.com) é uma plataforma de gestão de tarefas e produtividade para equipes, empresas e freelancers: criar tarefas, atribuir responsáveis, definir prazos, acompanhar progresso e centralizar a comunicação. Este servidor MCP expõe as tasks (dados gerais, conversas e demais informações) e as principais ações sobre elas para agentes de IA.
 
 ---
 
@@ -121,6 +121,182 @@ Altera o status de uma task.
 
 ---
 
+### Convenções das ferramentas de tasks
+
+- `taskId` é sempre o ID da URL da task (`https://app.tarefy.com/task/{{taskId}}`). O servidor resolve o ID interno (o "ticketId") quando a rota exige.
+- IDs de projetos, colunas, tipos, tags e usuários vêm de `get-task-options`.
+- Durações usam o formato horas:minutos (`"1:30"`); datas usam `AAAA-MM-DD`.
+- Exclusão e arquivamento de tasks **não** são expostos; use o app para isso.
+
+---
+
+### `search-tasks`
+
+Busca tasks por texto (título) ou número.
+
+| Parâmetro | Tipo        | Descrição                 |
+|-----------|-------------|---------------------------|
+| `term`    | obrigatório | Texto ou número a buscar. |
+
+Devolve `{ term, tasks }`; cada item traz `id_tarefa` (ID da URL) e `titulo`.
+
+---
+
+### `get-task-options`
+
+Sem parâmetros. Devolve os IDs necessários para criar/editar tasks: `projects` (com `columns`, as etapas do quadro, em ordem), `taskTypes`, `tags` (não arquivadas), `teams` (com `userIds`), `users` e `urgencies` (`Baixa`, `Média`, `Alta`, `Urgente`).
+
+---
+
+### `list-project-tasks`
+
+Lista as tasks de um projeto (quadro), resumidas (status, coluna, responsáveis, tags, cliente, tipo, urgência, datas, tempo trabalhado), das mais recentes para as mais antigas.
+
+| Parâmetro   | Tipo        | Descrição                                                                                              |
+|-------------|-------------|--------------------------------------------------------------------------------------------------------|
+| `projectId` | obrigatório | ID do projeto.                                                                                         |
+| `status`    | opcional    | `open`, `validation`, `done` ou `all`. Padrão: abertas + em validação.                                 |
+| `limit`     | opcional    | Máximo de tasks retornadas (até 1000). Padrão: 100.                                                    |
+
+Devolve `{ projectId, total, returned, tasks }`.
+
+---
+
+### `get-task-details`
+
+Dados complementares que o `get-task` não traz.
+
+| Parâmetro | Tipo        | Descrição                                                                                                  |
+|-----------|-------------|------------------------------------------------------------------------------------------------------------|
+| `taskId`  | obrigatório | ID da task.                                                                                                |
+| `include` | opcional    | Lista entre `subtasks`, `attachments`, `relationships`, `timeEntries` (horas lançadas) e `insights` (lead time, cycle time, aging). Padrão: todas. |
+
+---
+
+### `create-task`
+
+Cria uma task, ou uma subtask quando `parentTaskId` é informado.
+
+| Parâmetro        | Tipo        | Descrição                                                        |
+|------------------|-------------|------------------------------------------------------------------|
+| `title`          | obrigatório | Título.                                                          |
+| `projectId`      | opcional    | ID do projeto (quadro).                                          |
+| `columnId`       | opcional    | ID da coluna (etapa). Exige `projectId`.                         |
+| `clientId`       | opcional    | ID do cliente.                                                   |
+| `responsibleIds` | opcional    | IDs dos usuários responsáveis.                                   |
+| `typeId`         | opcional    | ID do tipo de task.                                              |
+| `dueDate`        | opcional    | Data desejada (`AAAA-MM-DD`).                                    |
+| `urgency`        | opcional    | `Baixa` (padrão), `Média`, `Alta` ou `Urgente`.                  |
+| `estimatedTime`  | opcional    | Estimativa (`"2:00"`).                                           |
+| `description`    | opcional    | Descrição em texto puro (convertida para o formato do editor).   |
+| `tagIds`         | opcional    | IDs das tags.                                                    |
+| `parentTaskId`   | opcional    | ID da URL da task pai, para criar uma subtask.                   |
+
+Devolve o ID e o link da task criada.
+
+---
+
+### `update-task`
+
+Atualiza campos de uma task. Informe só o que mudar; `null` limpa o campo. A descrição não é editável por aqui (o app a edita em tempo real via socket). Para status use `update-status`; para coluna, `move-task`.
+
+| Parâmetro          | Tipo        | Descrição                                              |
+|--------------------|-------------|--------------------------------------------------------|
+| `taskId`           | obrigatório | ID da task.                                            |
+| `title`            | opcional    | Novo título.                                           |
+| `typeId`           | opcional    | ID do tipo (ou `null`).                                |
+| `clientId`         | opcional    | ID do cliente (ou `null`).                             |
+| `dueDate`          | opcional    | Data desejada (ou `null`).                             |
+| `startDate`        | opcional    | Data de início (ou `null`).                            |
+| `endDate`          | opcional    | Data de entrega (ou `null`).                           |
+| `urgency`          | opcional    | `Baixa`, `Média`, `Alta` ou `Urgente`.                 |
+| `estimatedTime`    | opcional    | Estimativa (`"2:00"`).                                 |
+| `budget`           | opcional    | Horas orçadas (`"10:00"`).                             |
+| `competence`       | opcional    | Competência `AAAAMM` (ou `null`).                      |
+| `bug`              | opcional    | Marca/desmarca como bug.                               |
+| `hiddenFromClient` | opcional    | `true` oculta a task do cliente; `false` a torna visível. |
+
+---
+
+### `move-task`
+
+Move a task para outra coluna (etapa), inclusive no quadro de outro projeto.
+
+| Parâmetro   | Tipo        | Descrição                                            |
+|-------------|-------------|------------------------------------------------------|
+| `taskId`    | obrigatório | ID da task.                                          |
+| `columnId`  | obrigatório | ID da coluna de destino.                             |
+| `projectId` | opcional    | ID do projeto de destino, quando diferente do atual. |
+
+---
+
+### `update-responsibles`, `update-followers` e `update-tags`
+
+Adicionam e/ou removem responsáveis, seguidores ou tags de uma task. Fazem uma chamada por item e param no primeiro erro, informando o que já foi aplicado.
+
+| Parâmetro | Tipo        | Descrição                                 |
+|-----------|-------------|-------------------------------------------|
+| `taskId`  | obrigatório | ID da task.                               |
+| `add`     | opcional    | IDs (de usuários ou de tags) a adicionar. |
+| `remove`  | opcional    | IDs (de usuários ou de tags) a remover.   |
+
+---
+
+### `add-relationship`
+
+Relaciona duas tasks.
+
+| Parâmetro      | Tipo        | Descrição                                                                    |
+|----------------|-------------|------------------------------------------------------------------------------|
+| `taskId`       | obrigatório | ID da task de origem.                                                        |
+| `targetTaskId` | obrigatório | ID da URL da outra task.                                                     |
+| `type`         | opcional    | `relates_to` (padrão), `blocks`, `depends_on` ou `duplicates`.               |
+
+---
+
+### `toggle-timer`
+
+Inicia ou pausa (alterna) o cronômetro do usuário logado na task. Iniciar em uma task pode pausar o cronômetro de outra.
+
+| Parâmetro | Tipo        | Descrição   |
+|-----------|-------------|-------------|
+| `taskId`  | obrigatório | ID da task. |
+
+---
+
+### `log-time`
+
+Lança horas trabalhadas na task para o usuário logado.
+
+| Parâmetro  | Tipo        | Descrição                         |
+|------------|-------------|-----------------------------------|
+| `taskId`   | obrigatório | ID da task.                       |
+| `duration` | obrigatório | Tempo trabalhado (`"1:30"`).      |
+| `date`     | opcional    | Dia (`AAAA-MM-DD`). Padrão: hoje. |
+
+---
+
+### `duplicate-task`
+
+Duplica a task e devolve os dados da cópia.
+
+| Parâmetro | Tipo        | Descrição   |
+|-----------|-------------|-------------|
+| `taskId`  | obrigatório | ID da task. |
+
+---
+
+### `upload-attachment`
+
+Envia um arquivo local como anexo da task.
+
+| Parâmetro  | Tipo        | Descrição                          |
+|------------|-------------|------------------------------------|
+| `taskId`   | obrigatório | ID da task.                        |
+| `filePath` | obrigatório | Caminho absoluto do arquivo local. |
+
+---
+
 ## API do Tarefy (usada pelo servidor)
 
 O servidor chama a API HTTP do Tarefy com os seguintes detalhes.
@@ -144,6 +320,30 @@ O `<token>` é o valor do cookie `tarefy` obtido após o login (salvo em `~/.tar
 | Criar conversa       | POST   | `https://app.tarefy.com/nodeapi/v2/comments`                        | Corpo `{ "taskId": ticketId, "content": "<p>…</p>", "client": false }`; `client: true` = pública. |
 | Alterar status       | PATCH  | `https://app.tarefy.com/nodeapi/task/updatestatus`                  | Corpo `{ "idTask": ticketId, "status": 0 \| 1 \| 2 }` (0 aberta, 1 finalizada, 2 em validação). Resposta traz `task` quando deu certo. |
 | Reabrir finalizada   | PATCH  | `https://app.tarefy.com/nodeapi/task/reopen`                        | Corpo `{ "id": ticketId }`. Resposta `{ status: true, message }`.         |
+| ID interno da task   | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/public/{{taskId}}/internal-id` | Resposta `{ data: { id, id_tarefa } }`. `id` = ID interno (ticketId). |
+| Buscar tasks         | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/search?term={{texto}}`     | Lista em `tasks`.                                                          |
+| Opções de criação    | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/creation-options`          | `projects` (com `boardlists` = colunas) e `models`.                        |
+| Tipos de task        | GET    | `https://app.tarefy.com/nodeapi/v2/task-types?only_active=true`     | Lista.                                                                     |
+| Tags                 | GET    | `https://app.tarefy.com/nodeapi/v2/task-tags`                       | Lista.                                                                     |
+| Equipes e usuários   | GET    | `https://app.tarefy.com/nodeapi/v2/teams/task-creation-options`     | `data.teams[].usersList`.                                                  |
+| Tasks do projeto     | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/project/{{projectId}}`     | Lista (status numérico, coluna em `list[].boardlists`).                    |
+| Subtasks             | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/subtasks`     | Lista em `subTasks`.                                                       |
+| Anexos               | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/attachments`  | Lista em `attachs`.                                                        |
+| Enviar anexo         | POST   | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/attachments`  | `multipart/form-data` com o campo `file`.                                  |
+| Relacionamentos      | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/relationships` | Lista em `relationships`.                                                 |
+| Criar relacionamento | POST   | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/relationships` | Corpo `{ "target_task_id": ticketId, "relationship_type": "relates_to" \| "blocks" \| "depends_on" \| "duplicates" }`. |
+| Horas lançadas       | GET    | `https://app.tarefy.com/nodeapi/task/manualhours?id={{ticketId}}`   | Lista em `times`.                                                          |
+| Métricas de fluxo    | GET    | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/insights`     | Lead time, cycle time, aging etc.                                          |
+| Criar task           | POST   | `https://app.tarefy.com/nodeapi/v2/tasks` ou `.../v2/tasks/column/{{projectId}}/{{columnId}}` | Corpo `{ title, project_id, column_id, client_id, task_responsible: [{ user }], type_id, due_date, urgency, estimated_time: "HHH:MM", initialDescription: { format: "quill-delta-v1", ops }, tagsSelect: "1,2", parent_task_id, creation_context: "subtask" }`. |
+| Atualizar task       | PATCH  | `https://app.tarefy.com/nodeapi/v2/tasks/{{taskId}}`                | ID da URL. Corpo com os campos: `title`, `type_id`, `client_id`, `due_date`, `start_date`, `end_date`, `urgency`, `estimated_time`, `budget`, `competence`, `bug`. |
+| Visibilidade cliente | PATCH  | `https://app.tarefy.com/nodeapi/v2/tasks/{{taskId}}/client-visibility` | ID da URL. Corpo `{ "hidden": true }`.                                  |
+| Mover de coluna      | PATCH  | `https://app.tarefy.com/nodeapi/v2/tasks/{{taskId}}/move`           | ID da URL. Corpo `{ "target_column_id", "insert_at": "top", "target_project_id"? }`. |
+| Responsáveis         | POST / DELETE | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/responsibles` e `.../responsibles/{{userId}}` | POST com `{ "user_id" }`.                     |
+| Seguidores           | POST / DELETE | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/followers` e `.../followers/{{userId}}` | POST com `{ "user_id" }`.                           |
+| Tags da task         | POST / DELETE | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/tags` e `.../tags/{{tagId}}` | POST com `{ "tag_id" }`.                                       |
+| Cronômetro           | PATCH  | `https://app.tarefy.com/nodeapi/v2/tasks/{{ticketId}}/play-pause`   | Corpo `{}`. Alterna; resposta traz `task.working` (1 = rodando).           |
+| Lançar horas         | POST   | `https://app.tarefy.com/nodeapi/v2/tasks/{{taskId}}/worklogs`       | ID da URL. Corpo `{ "seconds", "date": "AAAA-MM-DD" }`.                   |
+| Duplicar             | POST   | `https://app.tarefy.com/nodeapi/v2/tasks/bulk-duplicate`            | Corpo `{ "taskIds": [taskId] }` (IDs da URL). Resposta `{ duplicated, createdTasks }`. |
 | Tasks a fazer        | GET    | `https://app.tarefy.com/nodeapi/task/open/user?userId={{userId}}`   | `userId` = campo `id` do payload do token JWT. Lista em `task`.            |
 | Tasks em validação   | GET    | `https://app.tarefy.com/nodeapi/task/validation/user?userId={{userId}}` | Idem. Lista em `task`.                                                 |
 | Tasks finalizadas    | GET    | `https://app.tarefy.com/nodeapi/task/finish/user?userId={{userId}}` | Idem. Lista em `task`.                                                     |

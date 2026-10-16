@@ -27,10 +27,10 @@ O agente é responsável por atender as solicitações de desenvolvimento, segui
 
 ## Estado do projeto (gerado conforme esta especificação)
 
-- Servidor MCP com **stdio**, tools `login` (Playwright + cookie), `get-task`, `list-tasks`, `add-comment` e `update-status` (API Tarefy; `list-tasks` obtém o `userId` do payload do token JWT; conversas via `/nodeapi/v2/comments`; status via `/nodeapi/task/updatestatus` e `/nodeapi/task/reopen`).
+- Servidor MCP com **stdio**, tools `login` (Playwright + cookie), `get-task`, `list-tasks`, `add-comment`, `update-status` e as ferramentas de gestão de tasks: `search-tasks`, `get-task-options`, `list-project-tasks`, `get-task-details`, `create-task`, `update-task`, `move-task`, `update-responsibles`, `update-followers`, `update-tags`, `add-relationship`, `toggle-timer`, `log-time`, `duplicate-task` e `upload-attachment` (API Tarefy; `list-tasks` obtém o `userId` do payload do token JWT; conversas via `/nodeapi/v2/comments`; status via `/nodeapi/task/updatestatus` e `/nodeapi/task/reopen`; demais rotas de tasks em `src/api/tasks.ts`, que resolve o ID da URL para o ID interno via `/v2/tasks/public/{id}/internal-id`). Exclusão e arquivamento de tasks não são expostos de propósito.
 - Token salvo em `~/.tarefy-mcp/token.txt`.
 - Workflows: **Publish to npm** (em push de tags `v*` ou workflow_dispatch): install, build, **test**, publish via Trusted Publishing (OIDC); permissões `id-token: write` e `contents: read`; sem `NPM_TOKEN`.
-- Testes unitários para `token-store`, decodificação do JWT (`auth/jwt`), API Tarefy e tools `get-task`, `list-tasks`, `add-comment` e `update-status`.
+- Testes unitários para `token-store`, decodificação do JWT (`auth/jwt`), API Tarefy e tools `get-task`, `list-tasks`, `add-comment`, `update-status` e as ferramentas de gestão de tasks (`src/tools/task-tools.test.ts`, com roteador de `fetch` simulado).
 - Prettier + ESLint (config Prettier); TypeScript com `tsconfig.json`.
 - **README.md** na raiz **autossuficiente**: contém instalação do MCP, descrição das ferramentas, API do Tarefy (headers e endpoints) e comandos de desenvolvimento, sem exigir leitura de outros arquivos.
 - Script **`inspector`**: testar o servidor com MCP Inspector (`bun run inspector` → build + `npx @modelcontextprotocol/inspector node build/index.js`).
