@@ -72,6 +72,32 @@ POST https://app.tarefy.com/nodeapi/v2/comments
 - **client**: `false` = conversa interna; `true` = conversa pública (visível para o cliente).
 - **Retorno**: `{ status: true, comment: { id, ... } }`.
 
+#### Alterar status de uma task
+
+```http
+PATCH https://app.tarefy.com/nodeapi/task/updatestatus
+```
+
+```json
+{ "idTask": {{ticketId}}, "status": 0 }
+```
+
+- **idTask**: o **ticketId** (campo `id` dos dados gerais).
+- **status**: `0` = aberta (recusa a validação), `1` = finalizada, `2` = em validação. É o mesmo campo numérico `status` dos dados gerais da task.
+- **Retorno**: `{ message, task }`; sem `task`, a alteração não foi feita (`message` explica o motivo).
+
+#### Reabrir uma task finalizada
+
+```http
+PATCH https://app.tarefy.com/nodeapi/task/reopen
+```
+
+```json
+{ "id": {{ticketId}} }
+```
+
+- **Retorno**: `{ status: true, message }` em caso de sucesso.
+
 #### Listas de tasks do usuário (abas de "Minhas tasks")
 
 ```http
@@ -169,3 +195,21 @@ Em `~/cursor/mcp.json` (ou equivalente):
 1. Lê o token salvo e obtém os dados gerais da task para descobrir o ticketId (campo `id`).
 2. Converte o texto em HTML (escapa caracteres especiais, um `<p>` por linha).
 3. Cria a conversa via `POST /nodeapi/v2/comments` e devolve uma confirmação com o ID do comentário criado.
+
+---
+
+### `update-status`
+
+**Inputs**
+
+| Nome     | Tipo        | Descrição                                                                                                         |
+| -------- | ----------- | ----------------------------------------------------------------------------------------------------------------- |
+| `taskId` | obrigatório | ID da task (o mesmo da URL: `https://app.tarefy.com/task/{{taskId}}`).                                            |
+| `status` | obrigatório | `open` (aberta; reabre uma finalizada ou recusa a validação), `validation` (em validação) ou `done` (finalizada). |
+
+**Funcionamento**
+
+1. Lê o token salvo e obtém os dados gerais da task: ticketId (campo `id`) e status atual (campo `status`: `0` aberta, `1` finalizada, `2` em validação).
+2. Se a task já está no status pedido, devolve uma mensagem sem chamar a API de alteração.
+3. `open` em task finalizada usa `PATCH /nodeapi/task/reopen`; os demais casos usam `PATCH /nodeapi/task/updatestatus` com o código do status.
+4. Devolve uma confirmação com o novo status.

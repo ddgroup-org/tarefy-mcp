@@ -6,6 +6,7 @@ import { runLogin } from "./tools/login.js";
 import { runGetTask } from "./tools/get-task.js";
 import { runListTasks } from "./tools/list-tasks.js";
 import { runAddComment } from "./tools/add-comment.js";
+import { runUpdateStatus } from "./tools/update-status.js";
 
 const server = new McpServer({
   name: "tarefy",
@@ -157,6 +158,41 @@ server.registerTool(
         content: [
           { type: "text", text: `Erro ao adicionar comentário: ${message}` },
         ],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "update-status",
+  {
+    description:
+      "Altera o status de uma task do Tarefy: 'open' (aberta; reabre uma finalizada ou recusa a validação), 'validation' (envia para validação) ou 'done' (finaliza). Requer que o usuário já tenha feito login (ferramenta 'login').",
+    inputSchema: {
+      taskId: z
+        .string()
+        .min(1)
+        .describe(
+          "ID da task (o mesmo da URL: https://app.tarefy.com/task/{{taskId}})."
+        ),
+      status: z
+        .enum(["open", "validation", "done"])
+        .describe(
+          "Novo status: 'open' (aberta), 'validation' (em validação) ou 'done' (finalizada)."
+        ),
+    },
+  },
+  async ({ taskId, status }) => {
+    try {
+      const text = await runUpdateStatus({ taskId, status });
+      return {
+        content: [{ type: "text", text }],
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: "text", text: `Erro ao alterar status: ${message}` }],
         isError: true,
       };
     }

@@ -103,6 +103,24 @@ Adiciona uma conversa a uma task: **interna** por padrão (só a equipe vê) ou 
 
 ---
 
+### `update-status`
+
+Altera o status de uma task.
+
+| Parâmetro | Tipo        | Descrição                                                                                              |
+|-----------|-------------|--------------------------------------------------------------------------------------------------------|
+| `taskId`  | obrigatório | ID da task, o mesmo da URL: `https://app.tarefy.com/task/{{taskId}}`.                                  |
+| `status`  | obrigatório | `open` (aberta; reabre uma finalizada ou recusa a validação), `validation` (em validação) ou `done` (finalizada). |
+
+**Comportamento:**
+
+1. Lê o token salvo por `login` e obtém os dados gerais da task (`ticketId` no campo `id` e status atual no campo `status`: `0` aberta, `1` finalizada, `2` em validação).
+2. Se a task já está no status pedido, não altera nada.
+3. Para reabrir uma task finalizada usa a rota de reabertura; nos demais casos usa a rota de atualização de status.
+4. Devolve uma confirmação com o novo status.
+
+---
+
 ## API do Tarefy (usada pelo servidor)
 
 O servidor chama a API HTTP do Tarefy com os seguintes detalhes.
@@ -124,6 +142,8 @@ O `<token>` é o valor do cookie `tarefy` obtido após o login (salvo em `~/.tar
 | Conversas internas   | GET    | `https://app.tarefy.com/nodeapi/v2/comments/{{ticketId}}?type=internal` | `ticketId` = campo `id` retornado nos dados gerais da task. Lista em `data.comments`. |
 | Conversas públicas   | GET    | `https://app.tarefy.com/nodeapi/v2/comments/{{ticketId}}?type=client` | Idem.                                                                   |
 | Criar conversa       | POST   | `https://app.tarefy.com/nodeapi/v2/comments`                        | Corpo `{ "taskId": ticketId, "content": "<p>…</p>", "client": false }`; `client: true` = pública. |
+| Alterar status       | PATCH  | `https://app.tarefy.com/nodeapi/task/updatestatus`                  | Corpo `{ "idTask": ticketId, "status": 0 \| 1 \| 2 }` (0 aberta, 1 finalizada, 2 em validação). Resposta traz `task` quando deu certo. |
+| Reabrir finalizada   | PATCH  | `https://app.tarefy.com/nodeapi/task/reopen`                        | Corpo `{ "id": ticketId }`. Resposta `{ status: true, message }`.         |
 | Tasks a fazer        | GET    | `https://app.tarefy.com/nodeapi/task/open/user?userId={{userId}}`   | `userId` = campo `id` do payload do token JWT. Lista em `task`.            |
 | Tasks em validação   | GET    | `https://app.tarefy.com/nodeapi/task/validation/user?userId={{userId}}` | Idem. Lista em `task`.                                                 |
 | Tasks finalizadas    | GET    | `https://app.tarefy.com/nodeapi/task/finish/user?userId={{userId}}` | Idem. Lista em `task`.                                                     |

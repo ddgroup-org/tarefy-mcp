@@ -169,3 +169,77 @@ export async function postComment(
   }
   return data.comment ?? {};
 }
+
+/** Status numérico da task: 0 = aberta, 1 = finalizada, 2 = em validação. */
+export type TarefyTaskStatus = 0 | 1 | 2;
+
+/**
+ * Altera o status da task (abrir/recusar validação, finalizar, enviar para validação).
+ * PATCH .../nodeapi/task/updatestatus  body: { idTask: {{ticketId}}, status: 0|1|2 }
+ * Resposta: { message, task } — sem `task` a alteração não foi feita.
+ */
+export async function updateTaskStatus(
+  ticketId: number,
+  status: TarefyTaskStatus,
+  token: string
+): Promise<string> {
+  const res = await fetch(`${BASE}/nodeapi/task/updatestatus`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ idTask: ticketId, status }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Tarefy API update status: ${res.status} ${res.statusText} - ${text}`
+    );
+  }
+  const data = (await res.json()) as {
+    message?: string;
+    task?: unknown;
+  } | null;
+  if (!data?.task) {
+    throw new Error(
+      `Tarefy API update status: ${data?.message ?? "a API não confirmou a alteração de status"}`
+    );
+  }
+  return data.message ?? "";
+}
+
+/**
+ * Reabre uma task finalizada.
+ * PATCH .../nodeapi/task/reopen  body: { id: {{ticketId}} }
+ * Resposta: { status: true|false, message }.
+ */
+export async function reopenTask(
+  ticketId: number,
+  token: string
+): Promise<string> {
+  const res = await fetch(`${BASE}/nodeapi/task/reopen`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ id: ticketId }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Tarefy API reopen: ${res.status} ${res.statusText} - ${text}`
+    );
+  }
+  const data = (await res.json()) as {
+    status?: boolean;
+    message?: string;
+  } | null;
+  if (data?.status !== true) {
+    throw new Error(
+      `Tarefy API reopen: ${data?.message ?? "a API não confirmou a reabertura da task"}`
+    );
+  }
+  return data.message ?? "";
+}

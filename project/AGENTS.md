@@ -27,10 +27,10 @@ O agente é responsável por atender as solicitações de desenvolvimento, segui
 
 ## Estado do projeto (gerado conforme esta especificação)
 
-- Servidor MCP com **stdio**, tools `login` (Playwright + cookie), `get-task`, `list-tasks` e `add-comment` (API Tarefy; `list-tasks` obtém o `userId` do payload do token JWT; conversas via `/nodeapi/v2/comments`).
+- Servidor MCP com **stdio**, tools `login` (Playwright + cookie), `get-task`, `list-tasks`, `add-comment` e `update-status` (API Tarefy; `list-tasks` obtém o `userId` do payload do token JWT; conversas via `/nodeapi/v2/comments`; status via `/nodeapi/task/updatestatus` e `/nodeapi/task/reopen`).
 - Token salvo em `~/.tarefy-mcp/token.txt`.
 - Workflows: **Publish to npm** (em push de tags `v*` ou workflow_dispatch): install, build, **test**, publish via Trusted Publishing (OIDC); permissões `id-token: write` e `contents: read`; sem `NPM_TOKEN`.
-- Testes unitários para `token-store`, decodificação do JWT (`auth/jwt`), API Tarefy e tools `get-task`, `list-tasks` e `add-comment`.
+- Testes unitários para `token-store`, decodificação do JWT (`auth/jwt`), API Tarefy e tools `get-task`, `list-tasks`, `add-comment` e `update-status`.
 - Prettier + ESLint (config Prettier); TypeScript com `tsconfig.json`.
 - **README.md** na raiz **autossuficiente**: contém instalação do MCP, descrição das ferramentas, API do Tarefy (headers e endpoints) e comandos de desenvolvimento, sem exigir leitura de outros arquivos.
 - Script **`inspector`**: testar o servidor com MCP Inspector (`bun run inspector` → build + `npx @modelcontextprotocol/inspector node build/index.js`).
